@@ -13,17 +13,16 @@ export default function CompletePage() {
 
   useEffect(() => {
     const c = getLastCompletion();
-    setData(c);
-    if (c) {
-      const missions = getMissions();
-      setHasNext(missions.some((m) => m.status === "available"));
+    if (!c) {
+      router.replace("/mission");
+      return;
     }
-  }, []);
+    setData(c);
+    const missions = getMissions();
+    setHasNext(missions.some((m) => m.status === "available"));
+  }, [router]);
 
-  if (!data) {
-    router.replace("/mission");
-    return null;
-  }
+  if (!data) return null;
 
   const totalEarned = data.pointsEarned + data.bonusPoints;
   const reachedTarget = data.todayCount >= data.dailyTarget;
