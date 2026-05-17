@@ -431,9 +431,13 @@ MVP에서는 [AI에게 더 쪼개달라고 하기] 버튼을 누르면 같은 �
 
 | 방식 | 설명 |
 |------|------|
-| 브라우저 열려 있음 | setTimeout으로 30분 후 토스트/모달 |
-| 브라우저 알림 허용 | Notification API 사용 |
+| 브라우저 열려 있음 | setInterval로 30분 후 모달, 예상 시간 경과 시 toast + beep |
+| 브라우저 알림 허용 | Notification API 사용 (미구현, 추후 확장) |
 | 브라우저 닫힘 | MVP에서는 제외 또는 추후 푸시 알림으로 확장 |
+
+**추가 구현: 예상 소요 시간 경과 알림**
+
+미션의 `estimatedMinutes` 시간이 지나면 Web Audio API(beep 사운드)와 앰버색 토스트 배너를 표시하여 시간 초과를 인지하게 한다. 타이머는 계속 진행되며(초과 시간 빨간색 표시), 완료 여부는 사용자가 결정한다.
 
 ---
 
@@ -496,10 +500,10 @@ MVP에서는 [AI에게 더 쪼개달라고 하기] 버튼을 누르면 같은 �
 | 항목 | 요구사항 |
 |------|---------|
 | 개발 속도 | 1~3일 내 배포 가능한 수준 |
-| 반응형 | 모바일 우선 UI |
-| 저장 방식 | MVP는 localStorage 또는 Supabase 사용 |
-| AI 호출 | OpenAI API 또는 대체 LLM API |
-| 배포 | Vercel 배포 |
+| 반응형 | 모바일 + 데스크탑 반응형 (모바일: 하단 탭/상단 헤더, 데스크탑: 좌측 사이드바) |
+| 저장 방식 | MVP는 localStorage, 추후 Supabase 마이그레이션 예정 |
+| AI 호출 | OpenAI API (gpt-4o-mini), API Key 없을 시 mock data 자동 폴백 |
+| 배포 | Vercel 자동 배포 (main 브랜치 push 시 트리거) |
 | UI 스타일 | 밝고 친근한 게이미피케이션 톤 |
 | 접근성 | 버튼 크기 충분히 크게, 텍스트 명확하게 |
 | 안정성 | AI 응답 실패 시 기본 미션 템플릿 제공 |
@@ -510,14 +514,14 @@ MVP에서는 [AI에게 더 쪼개달라고 하기] 버튼을 누르면 같은 �
 
 | 영역 | 기술 |
 |------|------|
-| Frontend | Next.js |
+| Frontend | Next.js 15 (App Router) |
 | Styling | Tailwind CSS |
-| UI Component | shadcn/ui |
-| State | Zustand 또는 React state |
+| UI Component | lucide-react (shadcn/ui 미사용) |
+| State | React useState / useEffect |
 | 저장 | localStorage → 추후 Supabase |
-| AI API | OpenAI API |
+| AI API | OpenAI API (gpt-4o-mini) |
 | 배포 | Vercel |
-| 알림 | Toast + Notification API |
+| 알림 | 내부 토스트 + Web Audio API (beep) |
 | 아이콘 | lucide-react |
 
 ---

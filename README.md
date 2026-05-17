@@ -10,13 +10,15 @@
 ## 핵심 기능
 
 - **AI 미션 생성** — 목표 한 문장을 입력하면 2~4개 챕터, 6~12개 미션으로 자동 분해
-- **듀오링고식 미션 맵** — 완료/진행 가능/잠김 상태의 세로형 단계 노드 UI
-- **타이머** — 미션 시작 버튼 클릭 시 스톱워치 작동, 진행 상태 유지
+- **듀오링고식 미션 맵** — 완료/진행 가능/잠김/진행 중 상태의 세로형 단계 노드 UI
+- **타이머** — 미션 시작 버튼 클릭 시 스톱워치 작동, 새로고침 후 진행 상태 복원
 - **포인트 시스템** — 미션 완료 +5pt, 하루 목표 달성 보너스 +30pt, 초과 미션 +7pt
-- **30분 알림** — 미션이 길어지면 재분해 제안 모달 팝업
+- **예상 시간 알림** — 예상 소요 시간 경과 시 사운드(beep) + 토스트 알림
+- **30분 모달** — 미션이 30분을 넘으면 재분해 제안 모달 팝업
 - **AI 미션 재분해** — 부담스러운 미션을 더 작은 하위 미션으로 다시 쪼갬
 - **하루 결과 & AI 피드백** — 오늘 성과 요약 및 내일을 위한 짧은 피드백
 - **커뮤니티 목업** — 향후 그룹 매칭/인증 피드 기능 예정 (현재 준비 중 화면)
+- **반응형 레이아웃** — 모바일(하단 탭 + 상단 헤더) + 데스크탑(좌측 사이드바)
 
 ---
 
@@ -24,15 +26,14 @@
 
 | 영역 | 기술 |
 |------|------|
-| Frontend | Next.js (App Router) |
+| Frontend | Next.js 15 (App Router) |
 | Styling | Tailwind CSS |
-| UI Component | shadcn/ui |
-| State | Zustand 또는 React state |
-| 저장 | localStorage → 추후 Supabase |
-| AI API | OpenAI API |
-| 배포 | Vercel |
-| 알림 | Toast + Notification API |
 | 아이콘 | lucide-react |
+| State | React useState / useEffect |
+| 저장 | localStorage (추후 Supabase 예정) |
+| AI API | OpenAI API (gpt-4o-mini) |
+| 배포 | Vercel |
+| 알림 | 내부 토스트 + Web Audio API |
 
 ---
 
@@ -41,7 +42,7 @@
 ### 1. 저장소 클론
 
 ```bash
-git clone https://github.com/your-username/my-aim.git
+git clone https://github.com/expJisuHan/my-aim.git
 cd my-aim
 ```
 
@@ -74,22 +75,24 @@ npm run dev
 ## 화면 구성
 
 ```
-Home → AI Plan Loading → Mission Created
-  → Mission Map → Mission Detail → Running Timer
+Home → AI Plan Loading → Mission Map (?new=1 축하 배너)
+  → Mission Detail → Running Timer
   → Mission Complete → Daily Result
+
+Mission Detail → AI 미션 재분해 → Mission Map
 ```
 
-| 화면 | 설명 |
-|------|------|
-| Home | 목표 입력 및 AI 미션 생성 시작 |
-| AI Plan Loading | 미션 생성 중 로딩 화면 |
-| Mission Map | 듀오링고식 단계 노드 미션 목록 |
-| Mission Detail | 미션 설명, 완료 기준, 시작 버튼 |
-| Running Timer | 스톱워치 및 미션 완료 처리 |
-| Mission Complete | 획득 포인트 및 다음 미션 유도 |
-| Daily Result | 하루 성과 요약 + AI 피드백 |
-| My Progress | 레벨, 포인트, 연속 진행 현황 |
-| Community | 향후 기능 준비 중 목업 |
+| 화면 | 경로 | 설명 |
+|------|------|------|
+| Home | `/` | 목표 입력 및 AI 미션 생성 시작 |
+| AI Plan Loading | `/loading-plan` | 미션 생성 중 로딩 화면 |
+| Mission Map | `/mission` | 듀오링고식 단계 노드 미션 목록 |
+| Mission Detail | `/mission/[id]` | 미션 설명, 완료 기준, 시작 버튼 |
+| Running Timer | `/timer/[id]` | 스톱워치 및 미션 완료 처리 |
+| Mission Complete | `/complete` | 획득 포인트 및 다음 미션 유도 |
+| Daily Result | `/result` | 하루 성과 요약 + AI 피드백 |
+| My Progress | `/progress` | 레벨, 포인트, 연속 진행 현황 |
+| Community | `/community` | 향후 기능 준비 중 목업 |
 
 ---
 
@@ -104,6 +107,13 @@ type Goal = {
   status: "active" | "completed" | "paused";
   dailyTargetCount: number;
   totalPoints: number;
+};
+
+type Chapter = {
+  id: string;
+  goalId: string;
+  title: string;
+  order: number;
 };
 
 type Mission = {
@@ -121,6 +131,15 @@ type Mission = {
   durationSeconds?: number;
   pointsEarned?: number;
 };
+
+type UserProgress = {
+  totalPoints: number;
+  level: number;
+  todayCompletedCount: number;
+  dailyTargetCount: number;
+  streak: number;
+  lastActiveDate: string;
+};
 ```
 
 ---
@@ -135,6 +154,40 @@ type Mission = {
 | 중단 후 복귀 보너스 | +3pt |
 | 실패/미완료 | 감점 없음 |
 
+레벨: 총 포인트 100pt당 1레벨 상승
+
+---
+
+## 프로젝트 구조
+
+```
+src/
+├── app/
+│   ├── page.tsx              # Home
+│   ├── loading-plan/         # AI 미션 생성 로딩
+│   ├── mission/
+│   │   ├── page.tsx          # Mission Map
+│   │   └── [id]/page.tsx     # Mission Detail
+│   ├── timer/[id]/           # Running Timer
+│   ├── complete/             # Mission Complete
+│   ├── result/               # Daily Result
+│   ├── progress/             # My Progress
+│   ├── community/            # Community Mock
+│   └── api/
+│       ├── generate-plan/    # POST: 목표 → 미션 생성
+│       ├── split-mission/    # POST: 미션 재분해
+│       └── feedback/         # POST: AI 피드백
+├── components/
+│   ├── Header.tsx            # 모바일 전용 상단 헤더
+│   ├── TabNav.tsx            # 모바일 전용 하단 탭
+│   └── Sidebar.tsx           # 데스크탑 전용 좌측 사이드바
+└── lib/
+    ├── types.ts              # TypeScript 타입 정의
+    ├── storage.ts            # localStorage CRUD
+    ├── points.ts             # 포인트 계산 로직
+    └── mockData.ts           # API Key 없을 때 mock data
+```
+
 ---
 
 ## 문서
@@ -147,7 +200,7 @@ type Mission = {
 
 ## 배포
 
-[Vercel](https://vercel.com) 을 통해 배포합니다.
+[Vercel](https://vercel.com) 을 통해 자동 배포됩니다. `main` 브랜치 push 시 자동 재배포.
 
 ```bash
 npm run build
